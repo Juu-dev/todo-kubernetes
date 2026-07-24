@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: todo-backend
-  namespace: todo-app
 spec:
   replicas: 2
   strategy:
@@ -38,6 +37,13 @@ spec:
                 secretKeyRef:
                   name: todo-postgres-secret
                   key: POSTGRES_PASSWORD
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
           startupProbe:
             httpGet:
               path: /actuator/health
@@ -50,19 +56,16 @@ spec:
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
               port: 8080
             initialDelaySeconds: 20
             periodSeconds: 20
-          resources:
-            requests:
-              cpu: 250m
-              memory: 512Mi
-            limits:
-              cpu: 1000m
-              memory: 1Gi
+            timeoutSeconds: 3
+            failureThreshold: 3
           lifecycle:
             preStop:
               exec:

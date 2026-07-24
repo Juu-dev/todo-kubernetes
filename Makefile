@@ -1,34 +1,40 @@
 SHELL := /bin/bash
 
-NAMESPACE := todo-app
+ENV ?= dev
+KUSTOMIZE_DIR := kubernetes/overlays/$(ENV)
+NAMESPACE := todo-app-$(ENV)
 FRONTEND_IMAGE := todo-frontend
 BACKEND_IMAGE := todo-backend
-FRONTEND_TAG := latest
-BACKEND_TAG := latest
 FRONTEND_SERVICE := todo-frontend-service
 BACKUP_JOB := todo-postgres-backup-manual
 
+ifeq ($(ENV),dev)
+FRONTEND_TAG := latest
+BACKEND_TAG := latest
+else
+FRONTEND_TAG := $(ENV)
+BACKEND_TAG := $(ENV)
+endif
+
 .PHONY: help minikube-env build-frontend build-backend build-images \
-	deploy-namespace deploy-database deploy-backend deploy-frontend deploy \
-	rollout-status status pods services hpa pdb top logs-backend logs-frontend \
-	port-forward backup-db backup-history delete
+	deploy rollout-status status pods services hpa pdb cronjobs top \
+	logs-backend logs-frontend port-forward delete backup-db backup-history
 
 help:
 	@echo "Available targets:"
-	@echo "  make minikube-env      Print the Docker env command for Minikube"
-	@echo "  make build-images      Build frontend and backend images with Minikube"
-	@echo "  make deploy            Deploy namespace, database, backend, and frontend"
-	@echo "  make rollout-status    Wait for frontend and backend rollout"
-	@echo "  make status            Show resources, HPA, PDB, and CronJobs in namespace $(NAMESPACE)"
-	@echo "  make pods              Show pods in namespace $(NAMESPACE)"
-	@echo "  make services          Show services in namespace $(NAMESPACE)"
-	@echo "  make top               Show pod resource usage (metrics-server required)"
-	@echo "  make backup-db         Trigger a manual Postgres backup job"
-	@echo "  make backup-history    Show backup jobs"
-	@echo "  make logs-backend      Tail backend logs"
-	@echo "  make logs-frontend     Tail frontend logs"
-	@echo "  make port-forward      Forward frontend service to http://localhost:8080"
-	@echo "  make delete            Remove deployed resources"
+	@echo "  make build-images ENV=dev      Build frontend and backend images with Minikube"
+	@echo "  make deploy ENV=dev            Deploy the selected overlay"
+	@echo "  make rollout-status ENV=dev    Wait for frontend and backend rollout"
+	@echo "  make status ENV=dev            Show resources, HPA, PDB, and CronJobs"
+	@echo "  make pods ENV=dev              Show pods in namespace $(NAMESPACE)"
+	@echo "  make services ENV=dev          Show services in namespace $(NAMESPACE)"
+	@echo "  make top ENV=dev               Show pod resource usage (metrics-server required)"
+	@echo "  make backup-db ENV=dev         Trigger a manual Postgres backup job"
+	@echo "  make backup-history ENV=dev    Show backup jobs"
+	@echo "  make logs-backend ENV=dev      Tail backend logs"
+	@echo "  make logs-frontend ENV=dev     Tail frontend logs"
+	@echo "  make port-forward ENV=dev      Forward frontend service to http://localhost:8080"
+	@echo "  make delete ENV=dev            Remove deployed resources for one environment"
 
 minikube-env:
 	@echo 'Run this command before building images:'
@@ -42,20 +48,9 @@ build-backend:
 
 build-images: build-frontend build-backend
 
-deploy-namespace:
-	kubectl apply -f kubernetes/namespace.yaml
-
-deploy-database: deploy-namespace
-	kubectl apply -f kubernetes/database
-
-deploy-backend: deploy-database
-	kubectl apply -f kubernetes/backend
-
-deploy-frontend: deploy-backend
-	kubectl apply -f kubernetes/frontend
-
-deploy: build-images deploy-frontend
-	$(MAKE) rollout-status
+deploy: build-images
+	kubectl apply -k $(KUSTOMIZE_DIR)
+	$(MAKE) rollout-status ENV=$(ENV)
 
 rollout-status:
 	kubectl rollout status deployment/todo-backend -n $(NAMESPACE) --timeout=180s
@@ -79,6 +74,9 @@ hpa:
 pdb:
 	kubectl get pdb -n $(NAMESPACE)
 
+cronjobs:
+	kubectl get cronjobs -n $(NAMESPACE)
+
 top:
 	kubectl top pods -n $(NAMESPACE)
 
@@ -99,7 +97,4 @@ backup-history:
 	kubectl get jobs -n $(NAMESPACE)
 
 delete:
-	kubectl delete -f kubernetes/frontend --ignore-not-found
-	kubectl delete -f kubernetes/backend --ignore-not-found
-	kubectl delete -f kubernetes/database --ignore-not-found
-	kubectl delete -f kubernetes/namespace.yaml --ignore-not-found
+	kubectl delete -k $(KUSTOMIZE_DIR) --ignore-not-found

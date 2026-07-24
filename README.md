@@ -6,17 +6,18 @@
 frontend/
 backend/
 kubernetes/
+  base/
+  overlays/
+    dev/
+    staging/
+    prod/
 ```
 
-## Frontend
+## App Stack
 
-- React app built with Vite
-- Nginx serves static files and proxies `/api/*` to backend
-
-## Backend
-
-- Spring Boot REST API
-- PostgreSQL persistence via Spring Data JPA
+- Frontend: React + Nginx
+- Backend: Spring Boot REST API + Actuator health endpoints
+- Database: PostgreSQL
 
 ## API
 
@@ -24,20 +25,36 @@ kubernetes/
 - `POST /api/todos`
 - `DELETE /api/todos/{id}`
 
-## Run locally with Docker
+## Kubernetes Features
 
-Build images:
+- Liveness, readiness, and startup probes
+- CPU and memory requests/limits
+- Rolling update with `maxUnavailable: 0`
+- Pod Disruption Budget for frontend and backend
+- Horizontal Pod Autoscaler for frontend and backend
+- Graceful shutdown for Spring Boot and deployment lifecycle hooks
+- Postgres backup CronJob plus manual backup target
+- Environment overlays for `dev`, `staging`, and `prod`
+
+## Minikube Workflow
 
 ```bash
-docker build -t todo-frontend:latest ./frontend
-docker build -t todo-backend:latest ./backend
+make build-images ENV=dev
+make deploy ENV=dev
+make rollout-status ENV=dev
+make port-forward ENV=dev
 ```
 
-## Deploy to Kubernetes
+## Useful Commands
 
 ```bash
-kubectl apply -f kubernetes/namespace.yaml
-kubectl apply -f kubernetes/database
-kubectl apply -f kubernetes/backend
-kubectl apply -f kubernetes/frontend
+make status ENV=dev
+make top ENV=dev
+make backup-db ENV=dev
+make delete ENV=dev
 ```
+
+## Notes
+
+- `make top` and HPA need `metrics-server` enabled in Minikube.
+- `staging` builds use image tag `staging`; `prod` builds use image tag `prod`.
