@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: todo-postgres-backup
+  namespace: todo-app
+spec:
+  schedule: "0 2 * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: postgres-backup
+              image: postgres:16-alpine
+              imagePullPolicy: IfNotPresent
+              envFrom:
+                - secretRef:
+                    name: todo-postgres-secret
+              command:
+                - /bin/sh
+                - -c
+                - >
+                  export PGPASSWORD="$POSTGRES_PASSWORD" &&
+                  mkdir -p /backup &&
+                  pg_dump -h todo-postgres-service -U "$POSTGRES_USER" -d "$POSTGRES_DB" >
+                  /backup/todosdb-$(date +%Y%m%d-%H%M%S).sql
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 300m
+                  memory: 256Mi
+              volumeMounts:
+                - name: postgres-backup
+                  mountPath: /backup
+          volumes:
+            - name: postgres-backup
+              persistentVolumeClaim:
+                claimName: todo-postgres-backup-pvc

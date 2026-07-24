@@ -6,10 +6,12 @@ BACKEND_IMAGE := todo-backend
 FRONTEND_TAG := latest
 BACKEND_TAG := latest
 FRONTEND_SERVICE := todo-frontend-service
+BACKUP_JOB := todo-postgres-backup-manual
 
 .PHONY: help minikube-env build-frontend build-backend build-images \
 	deploy-namespace deploy-database deploy-backend deploy-frontend deploy \
-	rollout-status status pods services hpa pdb top logs-backend logs-frontend port-forward delete
+	rollout-status status pods services hpa pdb top logs-backend logs-frontend \
+	port-forward backup-db backup-history delete
 
 help:
 	@echo "Available targets:"
@@ -17,10 +19,12 @@ help:
 	@echo "  make build-images      Build frontend and backend images with Minikube"
 	@echo "  make deploy            Deploy namespace, database, backend, and frontend"
 	@echo "  make rollout-status    Wait for frontend and backend rollout"
-	@echo "  make status            Show resources, HPA, and PDB in namespace $(NAMESPACE)"
+	@echo "  make status            Show resources, HPA, PDB, and CronJobs in namespace $(NAMESPACE)"
 	@echo "  make pods              Show pods in namespace $(NAMESPACE)"
 	@echo "  make services          Show services in namespace $(NAMESPACE)"
 	@echo "  make top               Show pod resource usage (metrics-server required)"
+	@echo "  make backup-db         Trigger a manual Postgres backup job"
+	@echo "  make backup-history    Show backup jobs"
 	@echo "  make logs-backend      Tail backend logs"
 	@echo "  make logs-frontend     Tail frontend logs"
 	@echo "  make port-forward      Forward frontend service to http://localhost:8080"
@@ -61,6 +65,7 @@ status:
 	kubectl get all -n $(NAMESPACE)
 	kubectl get hpa -n $(NAMESPACE)
 	kubectl get pdb -n $(NAMESPACE)
+	kubectl get cronjobs -n $(NAMESPACE)
 
 pods:
 	kubectl get pods -n $(NAMESPACE) -o wide
@@ -85,6 +90,13 @@ logs-frontend:
 
 port-forward:
 	kubectl port-forward -n $(NAMESPACE) svc/$(FRONTEND_SERVICE) 8080:80
+
+backup-db:
+	kubectl delete job -n $(NAMESPACE) $(BACKUP_JOB) --ignore-not-found
+	kubectl create job -n $(NAMESPACE) --from=cronjob/todo-postgres-backup $(BACKUP_JOB)
+
+backup-history:
+	kubectl get jobs -n $(NAMESPACE)
 
 delete:
 	kubectl delete -f kubernetes/frontend --ignore-not-found
