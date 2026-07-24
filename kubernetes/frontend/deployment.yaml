@@ -18,6 +18,7 @@ spec:
       labels:
         app: todo-frontend
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
         - name: frontend
           image: todo-frontend:latest
@@ -49,3 +50,10 @@ spec:
             limits:
               cpu: 300m
               memory: 256Mi
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - sleep 10
