@@ -26,4 +26,11 @@ management:
         include: health
   endpoint:
     health:
+      probes:
+        enabled: true
       show-details: always
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true

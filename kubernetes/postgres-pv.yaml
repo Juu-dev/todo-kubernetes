@@ -10,3 +10,4 @@ spec:
   storageClassName: ""
   hostPath:
     path: /data/postgres
+    type: DirectoryOrCreate
