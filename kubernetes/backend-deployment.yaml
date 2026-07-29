@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: todo-backend:v1
+          image: todo-backend:v2
           imagePullPolicy: Never
           env:
             - name: DATABASE_HOST
@@ -40,6 +40,26 @@ spec:
                   key: DATABASE_PASSWORD
           ports:
             - containerPort: 8080
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
 ---
 apiVersion: v1
 kind: Service
